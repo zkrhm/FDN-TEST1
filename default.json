@@ -1,0 +1,6 @@
+{
+    "fbgraph":{
+        "resultPerPage":5,
+        "fields":"message,picture,from,created_time,description,icon"
+    }
+}
