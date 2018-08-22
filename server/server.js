@@ -41,24 +41,20 @@ app.get('/api',(req, res)=>{
             if(err.type=='OAuthException'){
                 res.status(403)
                 res.send(JSON.stringify({
-                    "type":"OAuthError", 
-                    //
-                    "message":`Your token is expired, re-acquire by visiting : https://www.facebook.com/v3.1/dialog/oauth?response_type=token&display=popup&client_id=${process.env.APP_ID}&redirect_uri=http://${req.headers.host}/static/redirect.html&scope=user_posts`},null,3))
+                    type:"OAuthError", 
+                    message:`Your token is expired, re-acquire by visiting : https://www.facebook.com/v3.1/dialog/oauth?response_type=token&display=popup&client_id=${process.env.APP_ID}&redirect_uri=http://${req.headers.host}/static/redirect.html&scope=user_posts`,
+                    oauthLogin: `https://www.facebook.com/v3.1/dialog/oauth?response_type=token&display=popup&client_id=${process.env.APP_ID}&redirect_uri=http://${req.headers.host}/static/redirect.html&scope=user_posts`
+                },null,3))
             }if(err.type=='NoResult'){
                 res.status(404)
                 res.send(JSON.stringify(err,null,3))    
+            }else{
+                res.send(JSON.stringify(err,null,3))
             }
-
-            res.send(JSON.stringify(err,null,3))
         })
 })
 
 app.get('/login-callback',(req,res)=>{
-    
-    // var urlObj = url.parse(req.url)
-    // console.log(urlObj.hash)
-
-    // res.send(`click <a href="/api">here to return to API</a>`)
     //automatically set user's access token env variable
     process.env.USER_ACCESS_TOKEN=req.query.access_token
 
