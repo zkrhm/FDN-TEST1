@@ -30,12 +30,20 @@
   },
   "scripts": {
     "watch": "npm-watch",
-    "test": "jest",
+    "test": "NODE_ENV=test && jest",
+    "debug": "NODE_ENV=debug && jest",
     "build": "rimraf dist/ && babel ./ --out-dir dist/ --ignore ./node_modules,./.babelrc,./package.json,./npm-debug.log --copy-files",
-    "start": "npm run build && node dist/server/server.js"
+    "start": "npm run build && node dist/server/server.js",
+    "cleanup": "rm -Rf dist/"
   },
   "watch": {
     "source": "*.js"
+  },
+  "jest": {
+    "testPathIgnorePatterns": [
+      "<rootDir>/node_modules/",
+      "<rootDir>/dist/"
+    ]
   },
   "author": "",
   "license": "ISC"

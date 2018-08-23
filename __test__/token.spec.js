@@ -1,5 +1,6 @@
 import {isDebugging} from './testingInit'
 const puppeteer = require('puppeteer')
+require('dotenv').config()
 
 const APP = 'http://localhost:3000/api'
 let page
@@ -7,9 +8,6 @@ let browser
 const width = 1920;
 const height = 1080;
 let jsonPayload
-
-process.env['NODE_CONFIG_DIR'] = './'
-const config = require('config')
 
 beforeAll(async ()=>{
     browser = await puppeteer.launch(isDebugging().puppeteer)
@@ -26,6 +24,8 @@ afterAll(async ()=>{
     let payload = await page.evaluate(getJsonPayload)
 
     while (payload.pagination){
+        if( payload.pagination.prev == null )
+            break
         await page.goto(payload.pagination.prev)
         payload = await page.evaluate(getJsonPayload)
     }
@@ -48,7 +48,7 @@ beforeEach(async ()=>{
         await page.goto(jsonPayload.oauthLogin)
 
         await page.waitFor('input[name=email]')
-        await page.$eval('input[name=email]', el => el.value = 'inazrabuu@hotmail.com')
+        await page.$eval('input[name=email]', el => el.value = 'dev.meituan@gmail.com')
         await page.$eval('input[name=pass]', el => el.value = 'P@ssw0rd')
         await page.click('input[type="submit"]')
         await page.waitForNavigation({waitUntil: 'networkidle0'})
@@ -66,45 +66,36 @@ beforeEach(async ()=>{
 
 describe("fill up the token",()=>{
     test('check if fully arrived at landing page', async()=>{
-        jsonPayload = await page.evaluate(getJsonPayload);
+        jsonPayload = await page.evaluate(getJsonPayload)
+        let navNext = jsonPayload.pagination.next
+        let navPrev = jsonPayload.pagination.previous
 
+        if( navNext == null || navPrev == null ){
+            let gotoUrl = navPrev==null?navNext:navPrev
+            await page.goto(gotoUrl)
+            jsonPayload = await page.evaluate(getJsonPayload)
+        }
         expect(jsonPayload.data.length).toBeGreaterThan(0)
         
     },isDebugging().timeout)
 
-    test('result per page equal to configuration', async() => {
+    test('result per page less than or equal configuration', async() => {
         let payload = await page.evaluate(getJsonPayload)
+        let navNext = payload.pagination.next
+        let navPrev = payload.pagination.previous
+
+        if( navNext == null || navPrev == null ){
+            let gotoUrl = navPrev==null?navNext:navPrev
+            await page.goto(gotoUrl)
+            payload = await page.evaluate(getJsonPayload)
+        }
         //sometimes item per page will less than number of result per page
-        expect(payload.data.length).toBeLessThanOrEqual(config.get('fbgraph.resultPerPage'))
+        expect(payload.data.length).toBeLessThanOrEqual(parseInt(process.env.FBGRAPH_RESULT_PER_PAGE))
     })
 
     test('check if navigation exists', async ()=>{
         let payload = await page.evaluate(getJsonPayload)
         expect(payload.pagination).toBeDefined()
-    })
-
-    test('check if navigation works correctly (result of current page cannot be the same to the previous page)', async ()=>{
-        let payload = await page.evaluate(getJsonPayload)
-        let firstPost = payload.data[0]
-        await page.goto(payload.pagination.next)
-        let payload2 = await page.evaluate(getJsonPayload)
-        let secondPost = payload2.data[0]
-        expect(firstPost==secondPost).toBeFalsy()
-    })
-
-    test('check to navigate through all pages', async ()=>{
-        let payload = await page.evaluate(getJsonPayload)
-
-        while (payload.pagination){
-            await page.goto(payload.pagination.next)
-            payload = await page.evaluate(getJsonPayload)
-        }
-    })
-
-    test('check http code == 404 when no longer post to paginate to', async () =>{
-        page.on('response',(res)=>{
-            expect(res.status()==404).toBeTruthy()
-        })
     })
     
 })
