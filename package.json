@@ -30,10 +30,12 @@
   },
   "scripts": {
     "watch": "npm-watch",
-    "test": "NODE_ENV=test && jest",
+    "test": "yarn run startd && NODE_ENV=test && jest && yarn run stopd && yarn run cleanup",
     "debug": "NODE_ENV=debug && jest",
     "build": "rimraf dist/ && babel ./ --out-dir dist/ --ignore ./node_modules,./.babelrc,./package.json,./npm-debug.log --copy-files",
-    "start": "npm run build && node dist/server/server.js",
+    "start": "yarn run build && nodemon dist/server/server.js",
+    "startd": "yarn run build && nodemon dist/server/server.js &",
+    "stopd": "pgrep -f nodemon | xargs kill -9",
     "cleanup": "rm -Rf dist/"
   },
   "watch": {

@@ -5,8 +5,8 @@ require('dotenv').config()
 const APP = 'http://localhost:3000/api'
 let page
 let browser
-const width = 1920;
-const height = 1080;
+const width = 1920
+const height = 1080
 let jsonPayload
 
 beforeAll(async ()=>{
@@ -41,17 +41,21 @@ beforeEach(async ()=>{
     await page.goto(APP)
     let content= await page.content()
     
-    jsonPayload = await page.evaluate(getJsonPayload);
+    jsonPayload = await page.evaluate(getJsonPayload)
 
     if(jsonPayload.oauthLogin){
         console.log("has not login yet")
         await page.goto(jsonPayload.oauthLogin)
 
-        await page.waitFor('input[name=email]')
-        await page.$eval('input[name=email]', el => el.value = 'dev.meituan@gmail.com')
-        await page.$eval('input[name=pass]', el => el.value = 'P@ssw0rd')
-        await page.click('input[type="submit"]')
-        await page.waitForNavigation({waitUntil: 'networkidle0'})
+        jsonPayload = await page.evaluate(getJsonPayload)
+        let el = await page.evaluate(body=>body.outerHTML,page.$('input[name=email]'))
+
+        if(!jsonPayload.oauthLogin && el)
+            await page.waitFor('input[name=email]')
+            await page.$eval('input[name=email]', el => el.value = process.env.FB_EMAIL )
+            await page.$eval('input[name=pass]', el => el.value = process.env.FB_PASS)
+            await page.click('input[type="submit"]')
+            await page.waitForNavigation({waitUntil: 'networkidle0'})
     }else{
         //has been logged in.
         console.log("has been login")

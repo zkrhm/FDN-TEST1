@@ -12,6 +12,10 @@ var fb_api = new FBGraph()
 app.set('json spaces',3)
 app.use('/static',Express.static('static'))
 
+app.get('/',(req,res)=>{
+    res.redirect('/api')
+})
+
 app.get('/api',(req, res)=>{
     res.setHeader('Content-type','application/json')
 
