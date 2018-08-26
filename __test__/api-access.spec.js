@@ -77,7 +77,6 @@ beforeAll(async () => {
             await page.keyboard.type('P@ssw0rd')
             await page.click('input[type="submit"')
             await page.waitForNavigation()
-
             console.log("end of typing..")
 
             doEntry = false

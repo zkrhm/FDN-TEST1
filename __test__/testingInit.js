@@ -2,7 +2,7 @@ export const isDebugging = () => {
     let debugging_mode = {
       puppeteer: {
         headless: false,
-        slowMo: 80,
+        slowMo: 20,
         args: [`--window-size=1920,1080`]
       },
       timeout: 60000
