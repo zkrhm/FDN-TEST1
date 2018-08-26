@@ -25,10 +25,7 @@ export default class FBGraph {
   }
   fetchFeed() {
     let _obj = this
-    console.log("requesting : "+_obj.apiRequest)
     return new Promise(function (resolve, reject) {
-
-      console.log("calling FB.api request")
       FB.setAccessToken(process.env.USER_ACCESS_TOKEN)
       FB.api(_obj.apiRequest, function (res) {
         if (!res || res.error) {
