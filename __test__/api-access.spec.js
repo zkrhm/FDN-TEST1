@@ -7,105 +7,26 @@ let page
 let browser
 const width = 1920
 const height = 1080
+const timeout = 60000
 let jsonPayload
 
 beforeAll(async () => {
+    jest.setTimeout(timeout)
     browser = await puppeteer.launch(isDebugging().puppeteer)
     page = await browser.newPage()
     await page.setViewport({ width, height })
+    page.on('load',()=>{
+        console.log("loaded : "+page.url())
+    })
 
     process.env.USER_ACCESS_TOKEN = null
-})
 
-afterAll(async () => {
-    // await page.goto('http://www.facebook.com')
-    // await page.waitForNavigation({waitUntil: 'networkidle0'})
-    await page.goto(`${APP}?pagination=prev`)
-    let payload = await page.evaluate(getJsonPayload)
+    // console.log(`before each, goto : ${APP}`)
+    // await page.goto(APP)
 
-    while (payload.pagination) {
-        if (payload.pagination.prev == null)
-            break
-        await page.goto(payload.pagination.prev)
-        payload = await page.evaluate(getJsonPayload)
-    }
-
-    browser.close()
-})
-
-let getJsonPayload = () => {
-    return JSON.parse(document.querySelector("pre").innerText)
-}
-
-class SeeThePage {
-    constructor(page) {
-        this.page = page
-        this.content
-        let _obj = this
-        console.log("seeing the page")
-    }
-
-    getContent() {
-        return this.content
-    }
-
-    isOn() {
-        let _obj = this
-        return new Promise(async (resolve, reject) => {
-
-            const resp = await _obj.page.evaluate(() => {
-                const pre = document.querySelector("pre")
-                console.log(`"document is : ${JSON.stringify(document)}"`)
-                if(pre != null) 
-                    JSON.parse(pre.innerText)
-                return null
-            })
-            console.log(`"is ON  ? ${resp}"`)
-            resolve(resp != null && resp.hasOwnProperty('pagination'))
-        })
-    }
-
-    isItLoginPage() {
-        let _obj = this
-        return new Promise(async (resolve, reject) => {
-            await _obj.page.waitForSelector('input[name=email]')
-            const input = await _obj.page.evaluate(() => {
-                let o = document.querySelector('input[name=email]')
-                return o==null?null:o.outerHTML
-            })
-            _obj.content = input
-            console.log(`is login page ? ${JSON.stringify(input)}`)
-            resolve(input != null)
-        })
-    }
-
-    isTheSessionTimeout() {
-        let _obj = this
-        return new Promise(async (resolve, reject) => {
-            const resp = await _obj.page.evaluate(() => {
-                console.log(`session timeout : ${JSON.stringify(document)}`)
-                const pre = document.querySelector("pre")
-                if (pre != null) 
-                    JSON.parse(pre.innerText)
-                return null
-            })
-            console.log(`check if session is timeout : ${JSON.stringify(resp)}`)
-            _obj.content = resp
-            resolve(resp != null && resp.hasOwnProperty('oAuthLogin'))
-        })
-    }
-}
-
-function mustBeLoggedIn(json) {
-    if (!json.hasOwnProperty('pagination'))
-        throw new Error("Login Required")
-}
-
-beforeEach(async () => {
-    await page.goto(APP)
-
-    jsonPayload = await page.evaluate(getJsonPayload)
+    // jsonPayload = await page.evaluate(getJsonPayload)
     // let thePage = new SeeThePage(page)
+    // console.log(`---> before loop : ${JSON.stringify(jsonPayload)}`)
 
     let jsonStruct = null 
     
@@ -113,63 +34,131 @@ beforeEach(async () => {
     let isOn = true
     let isSessionTimeout = false
     let isItLoginPage = false
-    do{
-        jsonStruct = await page.evaluate(()=>document.querySelector('pre'))
-        htmlStruct = await page.evaluate(()=>{document.querySelector('input[name=email]')})
+    const maxThrottle = 10
+    let throttleCount = 0
+    let destAddr = APP
+    let accessPage = true
+    let reloop = true
+    let doEntry = false
 
-        console.log(`value check : jsonStruct => ${JSON.stringify(jsonStruct)}`)
+
+
+    do{
+
+        console.log(`var check > accessPage : ${accessPage} , doEntry: ${doEntry}`)
+        if (accessPage){
+            await page.goto(destAddr)
+
+            // let input = await page.evaluate(()=>document.querySelector('body'))
+            
+            // console.log(`"selecting 'pre': ${input}"`)
+            // if (input == null){
+            //     doEntry = true
+                let body = await page.evaluate(()=>document.querySelector('body'))
+                console.log(`body content : ${body}`)
+            // }
+            
+            accessPage = false
+
+            
+        }
+
+        if (doEntry) {
+            await page.goto(destAddr)
+            console.log("doing data entry...")
+            // await page.waitForSelector('#email')
+            // let input = await page.evaluate(()=>document.querySelector('body'))
+            // console.log(`input email : ${input.outerHTML}`)
+            console.log("typing....")
+            await page.click('#email')
+            await page.keyboard.type('dev.meituan@gmail.com')
+            console.log("finish typing..")
+            await page.click('#pass')
+            await page.keyboard.type('P@ssw0rd')
+            await page.click('input[type="submit"')
+            await page.waitForNavigation()
+
+            console.log("end of typing..")
+
+            doEntry = false
+        }
+
+       
+
+        console.log("start of the loop ----- ")
+        console.log(`throttle count : ${throttleCount}`)
+        // let document = await page.evaluate(()=>document)
+        // console.log(`document ${document.querySelector('pre')}`)
+
+        jsonStruct = await page.evaluate(getJsonPayload)
+        // htmlStruct = await page.evaluate(getHtmlPayload)
+
+        console.log(`value check : jsonStruct => ${JSON.stringify(jsonStruct)} typeof ${typeof(jsonStruct)}`)
         console.log(`htmlStruct => ${htmlStruct}`)
 
         isOn = (jsonStruct != null && jsonStruct.hasOwnProperty('pagination'))
-        isSessionTimeout = (jsonStruct != null && jsonStruct.hasOwnProperty('oAuthLogin'))
-        isItLoginPage = (htmlStruct != null) && (htmlStruct != undefined)
+        isSessionTimeout = (jsonStruct != null && jsonStruct.hasOwnProperty('oauthLogin'))
+        // isItLoginPage = (htmlStruct != null) && (htmlStruct != undefined)
+
+        console.log(`Truth test : {isOn : ${isOn}, isSessionTimeout : ${isSessionTimeout}, isLoginPage : ${isItLoginPage}}`)
 
         if(isSessionTimeout){
-            console.log("BRANCH 1 : session was timeout")
-            let obj = JSON.parse(jsonStruct)
-            await page.goto(obj.oauthLogin)
-            await page.waitForNavigation()
-        }else if(isItLoginPage){
-            console.log("BRANCH 2 : it is login page")
-            await page.waitForSelector('input[name=email]')
-            await page.$eval('input[name=email]', el => el.value = process.env.FB_MAIL)
-            await page.$eval('input[name=pass]', el => el.value = process.env.FB_PASS)
-            await page.click('input[type="submit"')
-            await page.waitForNavigation({waitUntil: 'networkidle0'})
-
+            console.log("BRANCH 1 : session was timeout, doing oauthlogin..")
+            destAddr = jsonStruct.oauthLogin
+            doEntry = true
+        }else if(isOn){
+            console.log("BRANCH 2 : is Logged in!")
         }else{
-            console.log("BRANCH 3 : is Logged in!")
+            console.log("BRANCH 3 : it is login page. do entry set to True")
+            // await page.waitForSelector('input[name=email]')
+            doEntry = true
         }
 
+        console.log("end of the loop -----")
+        throttleCount += 1
 
-    }while(!isOn)
+        reloop = !isOn && throttleCount < maxThrottle
+        console.log(`reloop : ${reloop}`)
+
+    }while(reloop)
+
+    if( throttleCount == maxThrottle)
+        throw new Error("throttle limit exceeded")
 
     console.log("VISITING APP")
-    // while (! await thePage.isOn()) {
-    //     if (await thePage.isTheSessionTimeout()) {
-    //         console.log("BRANCH-1: Session Timeout. visiting ")
-    //         const obj = thePage.getContent()
-    //         await page.goto(obj.oauthLogin)
-    //         await page.waitForNavigation()
-
-    //     } else if (await thePage.isItLoginPage()) {
-    //         console.log('BRANCH-2:it is login page...!!!')
-    //         await page.$eval('input[name=email]', el => el.value = process.env.FB_EMAIL)
-    //         await page.$eval('input[name=pass]', el => el.value = process.env.FB_PASS)
-    //         await page.click('input[type="submit"]')
-    //         await page.waitForNavigation({ waitUntil: 'networkidle0' })
-    //     } else {
-    //         //has been logged in.
-    //         console.log("BRANCH-3:has been login, carry on..")
-    //         let statusCode = page.on('response', async (res) => {
-    //             return await res.status()
-    //         })
-    //     }
-    //     thePage = new SeeThePage(page)
-    // }
-    // console.log("LEAVING LOOP")
 
 })
+
+afterAll(async () => {
+    // await page.goto('http://www.facebook.com')
+    // await page.waitForNavigation({waitUntil: 'networkidle0'})
+    // await page.goto(`${APP}?pagination=prev`)
+    // let payload = await page.evaluate(getJsonPayload)
+
+    // while (payload.pagination) {
+    //     if (payload.pagination.prev == null)
+    //         break
+    //     await page.goto(payload.pagination.prev)
+    //     payload = await page.evaluate(getJsonPayload)
+    // }
+
+    browser.close()
+})
+
+let getJsonPayload = () => {
+    let dom = document.querySelector("pre")
+    return (dom != null)?JSON.parse(dom.innerText):null
+}
+
+let getHtmlPayload = () =>{
+    let dom = document.querySelector(['input[name=email]'])
+    return (dom!=null)?dom:null
+}
+
+function mustBeLoggedIn(json) {
+    if (!json.hasOwnProperty('pagination'))
+        throw new Error("Login Required")
+}
 
 describe("fill up the token", () => {
     test('check if fully arrived at landing page', async () => {
